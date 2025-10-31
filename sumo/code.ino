@@ -22,6 +22,7 @@ const int MOTOR_ESQUERDO_ENB = 11; // Pino PWM para controle de velocidade do mo
 const int ESPERA_INICIAL_SEGUNDOS = 2;
 const int AVANCO_INICIAL_MS = 500; // Avança por meio segundo
 const int DISTANCIA_MAXIMA_CM = 50; // Distância máxima para detectar um oponente
+const int MIN_DISTANCE_CM = 5; // Distância mínima confiável para o sensor (objetos mais próximos que isso serão tratados como MIN_DISTANCE_CM)
 const bool MOVIMENTO_DE_DEFESA_ATIVADO = true;
 const int LIMITE_SEM_ALTERACAO_CM = 5; // Se a distância mudar menos que isso, aciona a defesa
 const int TEMPO_RE_DEFESA_MS = 400;
@@ -86,8 +87,8 @@ void loop() {
   Serial.print(distanciaAtual);
   Serial.println(" cm");
 
-  // Se detecta um oponente dentro do alcance
-  if (distanciaAtual > 0 && distanciaAtual <= DISTANCIA_MAXIMA_CM) {
+  // Se detecta um oponente dentro do alcance (incluindo os muito próximos)
+  if (distanciaAtual <= DISTANCIA_MAXIMA_CM) {
     // Oponente detectado
     if (!isAttacking) { // Acabou de detectar um oponente, iniciar ataque
         Serial.println("Oponente detectado, iniciando ataque.");
@@ -174,20 +175,26 @@ void pararMotores() {
 // ---+---===[ FUNÇÕES DO SENSOR ]===---+---
 
 long lerDistanciaCm() {
-  // Gera um pulso de 10 microssegundos no pino de trigger
   digitalWrite(PINO_TRIG, LOW);
   delayMicroseconds(2);
   digitalWrite(PINO_TRIG, HIGH);
   delayMicroseconds(10);
   digitalWrite(PINO_TRIG, LOW);
 
-  // Lê o tempo que o pino echo ficou em HIGH
-  long duracao = pulseIn(PINO_ECHO, HIGH);
+  long duracao = pulseIn(PINO_ECHO, HIGH, 30000); // Timeout de 30ms (aprox. 5m) para evitar travamento
+  long distancia = duracao / 29 / 2;
 
-  // Calcula a distância em centímetros
-  // Velocidade do som = 343 m/s ou 29.1 microssegundos por cm
-  // A distância é de ida e volta, então dividimos por 2
-  return duracao / 29 / 2;
+  // Se duracao for 0, significa que não houve eco (objeto muito longe ou erro).
+  // Ou se a distância calculada for muito grande (erro de leitura do sensor).
+  if (duracao == 0 || distancia > 400) { // 400cm é um limite razoável para a maioria dos HC-SR04
+      return DISTANCIA_MAXIMA_CM + 1; // Retorna um valor que indica "fora de alcance"
+  }
+  // Se a distância for muito pequena (dentro da zona morta do sensor), ainda é um objeto.
+  // Retornamos a distância mínima configurada para indicar que está muito próximo.
+  if (distancia < MIN_DISTANCE_CM) {
+      return MIN_DISTANCE_CM; // Trata como se estivesse na distância mínima
+  }
+  return distancia;
 }
 
 // ---+---===[ FUNÇÕES DE COMPORTAMENTO ]===---+---
