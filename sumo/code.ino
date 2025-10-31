@@ -9,6 +9,9 @@
 const int PINO_TRIG = 9;
 const int PINO_ECHO = 10;
 
+const int IR_FRONT_SENSOR_PIN = 7; // Pino do sensor IR frontal para detecção da linha do ringue
+const int IR_REAR_SENSOR_PIN = 8;  // Pino do sensor IR traseiro para detecção da linha do ringue
+
 const int MOTOR_DIREITO_IN1 = 2;
 const int MOTOR_DIREITO_IN2 = 3;
 const int MOTOR_DIREITO_ENA = 6; // Pino PWM para controle de velocidade do motor direito
@@ -42,6 +45,7 @@ void pararMotores();
 long lerDistanciaCm();
 void movimentoDeDefesa();
 void procurarOponente();
+void checkRingBoundary();
 // ---+---===[ FIM DOS PROTÓTIPOS ]===---+---
 
 long distanciaAnterior = 0;
@@ -62,6 +66,8 @@ void setup() {
   // Configura os pinos do sensor ultrassônico
   pinMode(PINO_TRIG, OUTPUT);
   pinMode(PINO_ECHO, INPUT);
+  pinMode(IR_FRONT_SENSOR_PIN, INPUT); // Configura o pino do sensor IR frontal como entrada
+  pinMode(IR_REAR_SENSOR_PIN, INPUT);  // Configura o pino do sensor IR traseiro como entrada
 
   // Para os motores no início para garantir
   pararMotores();
@@ -82,6 +88,8 @@ void setup() {
 }
 
 void loop() {
+  checkRingBoundary(); // Verifica o limite do ringue primeiro
+
   long distanciaAtual = lerDistanciaCm();
   Serial.print("Distância: ");
   Serial.print(distanciaAtual);
@@ -246,4 +254,39 @@ void procurarOponente() {
     avancar();
     delay(TEMPO_PROCURA_AVANCO_MS); // Avança um pouco
     pararMotores();
+}
+
+void checkRingBoundary() {
+  // Assume HIGH significa que a borda do ringue foi detectada
+  bool frontBoundaryDetected = (digitalRead(IR_FRONT_SENSOR_PIN) == HIGH);
+  bool rearBoundaryDetected = (digitalRead(IR_REAR_SENSOR_PIN) == HIGH);
+
+  if (frontBoundaryDetected) {
+    Serial.println("Limite frontal do ringue detectado! Manobra de evasão.");
+    pararMotores();
+    delay(100);
+    re(); // Dá ré
+    delay(500); // Dá ré por meio segundo
+    pararMotores();
+    delay(100);
+    girarDireita(200); // Gira para a direita para se afastar da borda
+    delay(800); // Gira por um tempo
+    pararMotores();
+    // Após a manobra, o robô pode retomar a busca por oponentes
+    // ou simplesmente retornar ao loop principal para decidir.
+  } else if (rearBoundaryDetected) {
+    Serial.println("Limite traseiro do ringue detectado! Defesa contra saída.");
+    // Se o sensor traseiro detecta a borda, significa que o robô está sendo empurrado para fora pela frente.
+    // Empurra agressivamente para frente para voltar ao ringue.
+    pararMotores();
+    delay(100);
+    avancar(255); // Empurra para frente na velocidade máxima
+    delay(700); // Empurra por um tempo
+    pararMotores();
+    delay(100);
+    // Opcionalmente, gira para reorientar se ainda estiver perto da borda
+    girarDireita(200);
+    delay(400);
+    pararMotores();
+  }
 }
