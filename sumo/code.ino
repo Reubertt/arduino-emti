@@ -44,6 +44,7 @@ void procurarOponente();
 // ---+---===[ FIM DOS PROTÓTIPOS ]===---+---
 
 long distanciaAnterior = 0;
+bool isAttacking = false; // Variável para rastrear o estado de ataque
 
 void setup() {
   // Inicializa a comunicação serial para depuração
@@ -87,25 +88,34 @@ void loop() {
 
   // Se detecta um oponente dentro do alcance
   if (distanciaAtual > 0 && distanciaAtual <= DISTANCIA_MAXIMA_CM) {
-    // Lógica de ataque e defesa
-    Serial.println("Oponente detectado! Atacando.");
+    // Oponente detectado
+    if (!isAttacking) { // Acabou de detectar um oponente, iniciar ataque
+        Serial.println("Oponente detectado, iniciando ataque.");
+        isAttacking = true;
+    }
 
-    // Verifica se o movimento de defesa deve ser ativado
+    // Lógica de ataque e defesa
     if (MOVIMENTO_DE_DEFESA_ATIVADO && abs(distanciaAtual - distanciaAnterior) < LIMITE_SEM_ALTERACAO_CM) {
         Serial.println("Sem alteração significativa de distância. Ativando defesa!");
         movimentoDeDefesa();
     } else {
-        // Se não, avança para atacar
-        avancar();
+        avancar(); // Continua avançando
     }
-    // Atualiza a distância anterior para a próxima iteração
     distanciaAnterior = distanciaAtual;
   } else {
-    // Lógica de procura
-    Serial.println("Nenhum oponente. Procurando...");
-    procurarOponente();
+    // Nenhum oponente detectado
+    if (isAttacking) { // Estava atacando, mas agora perdeu o oponente
+        Serial.println("Oponente perdido! Dando ré e procurando.");
+        re(); // Imediatamente dá ré
+        delay(300); // Dá ré por um curto período
+        pararMotores();
+        isAttacking = false; // Não está mais atacando
+        procurarOponente(); // Inicia a busca
+    } else {
+        // Não está atacando e nenhum oponente, apenas procura
+        procurarOponente();
+    }
   }
-
   delay(50); // Pequeno delay para não sobrecarregar o loop
 }
 
