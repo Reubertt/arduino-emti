@@ -200,24 +200,33 @@ void movimentoDeDefesa() {
 }
 
 void procurarOponente() {
-    // Para, gira no próprio eixo para procurar
+    Serial.println("Procurando oponente girando no eixo...");
     pararMotores();
-    delay(100);
-    girarNoEixo();
-    delay(TEMPO_PROCURA_GIRO_MS);
-    pararMotores();
+    delay(100); // Pequena pausa antes de girar
 
-    // Verifica se encontrou algo após girar
-    long distancia = lerDistanciaCm();
-    if (distancia > 0 && distancia <= DISTANCIA_MAXIMA_CM) {
-        return; // Encontrou, sai da função de procura
+    unsigned long startTime = millis();
+    const unsigned long searchDuration = 2000; // Gira por 2 segundos procurando
+
+    girarNoEixo(); // Começa a girar
+
+    while (millis() - startTime < searchDuration) {
+        long distancia = lerDistanciaCm();
+        if (distancia > 0 && distancia <= DISTANCIA_MAXIMA_CM) {
+            Serial.println("Oponente encontrado durante o giro! Avançando.");
+            avancar(); // Avança imediatamente
+            return; // Sai da função de procura
+        }
+        // Pequeno delay para não sobrecarregar o sensor e o loop
+        delay(20); // Verifica a cada 20ms
     }
 
-    // Se não encontrou, vira para a direita e avança um pouco
+    // Se chegou aqui, não encontrou nada durante o giro completo
+    Serial.println("Nenhum oponente encontrado após giro. Virando e avançando um pouco.");
+    pararMotores();
     delay(100);
     girarDireita();
-    delay(200); // Gira um pouco
+    delay(200); // Gira um pouco para a direita
     avancar();
-    delay(TEMPO_PROCURA_AVANCO_MS);
+    delay(TEMPO_PROCURA_AVANCO_MS); // Avança um pouco
     pararMotores();
 }
