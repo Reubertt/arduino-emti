@@ -45,7 +45,7 @@ void pararMotores();
 long lerDistanciaCm();
 void movimentoDeDefesa();
 void procurarOponente();
-void checkRingBoundary();
+bool checkRingBoundary();
 // ---+---===[ FIM DOS PROTÓTIPOS ]===---+---
 
 long distanciaAnterior = 0;
@@ -88,7 +88,9 @@ void setup() {
 }
 
 void loop() {
-  checkRingBoundary(); // Verifica o limite do ringue primeiro
+  if (checkRingBoundary()) { // Verifica o limite do ringue primeiro
+    return; // Se a borda foi detectada e tratada, reinicia o loop imediatamente
+  }
 
   long distanciaAtual = lerDistanciaCm();
   Serial.print("Distância: ");
@@ -256,7 +258,7 @@ void procurarOponente() {
     pararMotores();
 }
 
-void checkRingBoundary() {
+bool checkRingBoundary() {
   // Assume HIGH significa que a borda do ringue foi detectada
   bool frontBoundaryDetected = (digitalRead(IR_FRONT_SENSOR_PIN) == HIGH);
   bool rearBoundaryDetected = (digitalRead(IR_REAR_SENSOR_PIN) == HIGH);
@@ -272,21 +274,19 @@ void checkRingBoundary() {
     girarDireita(200); // Gira para a direita para se afastar da borda
     delay(800); // Gira por um tempo
     pararMotores();
-    // Após a manobra, o robô pode retomar a busca por oponentes
-    // ou simplesmente retornar ao loop principal para decidir.
+    return true; // Borda detectada e tratada
   } else if (rearBoundaryDetected) {
     Serial.println("Limite traseiro do ringue detectado! Defesa contra saída.");
-    // Se o sensor traseiro detecta a borda, significa que o robô está sendo empurrado para fora pela frente.
-    // Empurra agressivamente para frente para voltar ao ringue.
     pararMotores();
     delay(100);
     avancar(255); // Empurra para frente na velocidade máxima
     delay(700); // Empurra por um tempo
     pararMotores();
     delay(100);
-    // Opcionalmente, gira para reorientar se ainda estiver perto da borda
     girarDireita(200);
     delay(400);
     pararMotores();
+    return true; // Borda detectada e tratada
   }
+  return false; // Nenhuma borda detectada
 }
