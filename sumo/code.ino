@@ -179,7 +179,7 @@ const int TEMPO_PROCURA_AVANCO_MS =
 // antes que elas sejam realmente definidas mais abaixo no código.
 // Isso é necessário para que o Arduino saiba que essas funções existem
 // quando são chamadas em 'setup()' ou 'loop()'.
-void controlMotor(int in1Pin, int in2Pin, int enablePin, int direction);
+void controlMotor(int in1Pin, int in2Pin, int direction);
 void avancar();
 void re();
 void girarDireita();
@@ -213,6 +213,10 @@ void setup() {
   pinMode(MOTOR_ESQUERDO_IN3, OUTPUT);
   pinMode(MOTOR_ESQUERDO_IN4, OUTPUT);
   pinMode(MOTOR_ESQUERDO_ENB, OUTPUT);
+
+  // Ativa os pinos de enable dos motores permanentemente.
+  digitalWrite(MOTOR_DIREITO_ENA, HIGH);
+  digitalWrite(MOTOR_ESQUERDO_ENB, HIGH);
 
   // --- Configuração dos Pinos de Entrada (INPUT) para os Sensores ---
   // Estes pinos recebem sinais dos sensores.
@@ -249,7 +253,7 @@ void setup() {
 // É a "mente" do robô, onde ele toma decisões continuamente.
 void loop() {
   // --- PRIORIDADE MÁXIMA: Verificação da Borda do Ringue ---
-  // Esta é a primeira चीज que o robô verifica em cada ciclo.
+  // Esta é a primeira coisa que o robô verifica em cada ciclo.
   // Se uma borda for detectada, o robô executa uma manobra de recuperação
   // e o 'loop()' é reiniciado imediatamente para garantir que a borda
   // seja tratada com a maior prioridade.
@@ -323,47 +327,37 @@ void loop() {
 #define MOTOR_STOP 2     // Parar o motor
 
 // Função auxiliar para controlar um único motor.
-// Ela recebe os pinos de controle da Ponte H para um motor, o pino de
-// habilitação, e a direção desejada.
-void controlMotor(int in1Pin, int in2Pin, int enablePin, int direction) {
+// Ela recebe os pinos de controle da Ponte H para um motor e a direção desejada.
+void controlMotor(int in1Pin, int in2Pin, int direction) {
   if (direction == MOTOR_FORWARD) {
     digitalWrite(in1Pin, HIGH); // Define a direção para frente.
     digitalWrite(in2Pin, LOW);
-    digitalWrite(enablePin, HIGH);
   } else if (direction == MOTOR_BACKWARD) {
     digitalWrite(in1Pin, LOW); // Define a direção para trás.
     digitalWrite(in2Pin, HIGH);
-    digitalWrite(enablePin, HIGH);
   } else { // MOTOR_STOP
     digitalWrite(in1Pin,
                  LOW); // Para o motor, desligando ambos os pinos de direção.
     digitalWrite(in2Pin, LOW);
-    digitalWrite(enablePin, LOW);
   }
 }
 
 // Faz o robô avançar.
 void avancar() {
-  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA,
-               MOTOR_FORWARD);
-  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB,
-               MOTOR_FORWARD);
+  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_FORWARD);
+  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_FORWARD);
 }
 
 // Faz o robô dar ré.
 void re() {
-  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA,
-               MOTOR_BACKWARD);
-  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB,
-               MOTOR_BACKWARD);
+  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_BACKWARD);
+  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_BACKWARD);
 }
 
 // Faz o robô girar para a direita (um motor para trás, outro para frente).
 void girarDireita() {
-  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA,
-               MOTOR_BACKWARD); // Motor direito para trás.
-  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB,
-               MOTOR_FORWARD); // Motor esquerdo para frente.
+  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_BACKWARD); // Motor direito para trás.
+  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_FORWARD); // Motor esquerdo para frente.
 }
 
 // Faz o robô girar no próprio eixo para a direita.
@@ -373,10 +367,8 @@ void girarNoEixo() {
 
 // Para ambos os motores do robô.
 void pararMotores() {
-  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA,
-               MOTOR_STOP); // Para o motor direito.
-  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB,
-               MOTOR_STOP); // Para o motor esquerdo.
+  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_STOP); // Para o motor direito.
+  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_STOP); // Para o motor esquerdo.
 }
 
 // ---+---===[ 7. FUNÇÕES DE SENSORES ]===---+---
@@ -433,10 +425,8 @@ void movimentoDeDefesa() {
   Serial.println("Executando manobra de defesa...");
   // Dá ré virando para a direita
   // Motor direito parado, motor esquerdo para trás
-  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA,
-               MOTOR_STOP); // Motor direito parado
-  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB,
-               MOTOR_BACKWARD); // Motor esquerdo para trás
+  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_STOP); // Motor direito parado
+  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_BACKWARD); // Motor esquerdo para trás
   delay(TEMPO_GIRO_DEFESA_MS);
 
   // Continua dando ré por um tempo
