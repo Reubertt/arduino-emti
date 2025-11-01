@@ -1,42 +1,158 @@
 /*
-  Código para Robô de Sumô Arduino
-  Controla dois motores com uma Ponte H e usa um sensor ultrassônico para detectar oponentes.
+  PROJETO: Robô de Sumô Autônomo)
+
+  OBJETIVO:
+  Este código controla um robô de sumô autônomo projetado para competir em um
+  ringue. O robô usa sensores para detectar oponentes e as bordas do ringue,
+  tomando decisões para atacar, defender e evitar cair.
+
+
+  COMPONENTES NECESSÁRIOS:
+  - Placa Arduino (Uno, Nano, etc.)
+  - Ponte H L298N (ou similar) para controle dos motores
+  - 2 Motores DC com caixa de redução (para as rodas)
+  - 1 Sensor Ultrassônico HC-SR04 (para detectar oponentes)
+  - 2 Sensores Infravermelhos (IR) de linha (um frontal, um traseiro, para
+  detectar a borda do ringue)
+  - Bateria (para alimentar o Arduino e os motores)
+  - Fios jumper, protoboard (opcional)
+
+  COMO MONTAR O ROBÔ (Conexões Elétricas):
+
+  1.  **ALIMENTAÇÃO DA PONTE H (L298N):**
+      - Conecte o pino VIN (ou 12V) da Ponte H ao polo positivo da sua bateria.
+      - Conecte o pino GND da Ponte H ao polo negativo da sua bateria E ao GND
+  do Arduino.
+      - (Opcional) Se sua bateria for > 9V, conecte o pino 5V da Ponte H ao 5V
+  do Arduino para alimentar o Arduino (verifique a documentação da sua Ponte H).
+
+  2.  **MOTORES DC:**
+      - Conecte os dois fios de um motor aos pinos OUT1 e OUT2 da Ponte H.
+      - Conecte os dois fios do outro motor aos pinos OUT3 e OUT4 da Ponte H.
+      (Se um motor girar para o lado errado, inverta a conexão dos fios dele na
+  Ponte H).
+
+  3.  **CONTROLE DOS MOTORES (Ponte H para Arduino):**
+      - **Motor Direito:**
+          - L298N IN1  -> Arduino Digital 2 (MOTOR_DIREITO_IN1)
+          - L298N IN2  -> Arduino Digital 3 (MOTOR_DIREITO_IN2)
+          - L298N ENA  -> Arduino Digital 6 (MOTOR_DIREITO_ENA - Pino PWM!)
+      - **Motor Esquerdo:**
+          - L298N IN3  -> Arduino Digital 4 (MOTOR_ESQUERDO_IN3)
+          - L298N IN4  -> Arduino Digital 5 (MOTOR_ESQUERDO_IN4)
+          - L298N ENB  -> Arduino Digital 11 (MOTOR_ESQUERDO_ENB - Pino PWM!)
+
+  4.  **SENSOR ULTRASSÔNICO HC-SR04:**
+      - HC-SR04 VCC -> Arduino 5V
+      - HC-SR04 GND -> Arduino GND
+      - HC-SR04 Trig -> Arduino Digital 9 (PINO_TRIG)
+      - HC-SR04 Echo -> Arduino Digital 10 (PINO_ECHO)
+
+  5.  **SENSORES INFRAVERMELHOS (IR) de Linha:**
+      - **Ambos os Sensores IR:**
+          - IR VCC -> Arduino 5V
+          - IR GND -> Arduino GND
+      - **Sensor IR Frontal:**
+          - IR OUT (D0) -> Arduino Digital 7 (IR_FRONT_SENSOR_PIN)
+      - **Sensor IR Traseiro:**
+          - IR OUT (D0) -> Arduino Digital 8 (IR_REAR_SENSOR_PIN)
+      (Verifique a documentação do seu sensor IR: alguns podem precisar de um
+  resistor pull-up/down ou ter uma saída invertida - HIGH para linha, LOW para
+  fora da linha, ou vice-versa. O código assume HIGH para linha.)
+
+  COMO USAR O CÓDIGO:
+  1.  Conecte seu Arduino ao computador.
+  2.  Abra este arquivo (.ino) no IDE do Arduino.
+  3.  Verifique se as conexões dos pinos no código (seção CONFIGURAÇÕES)
+  correspondem à sua montagem.
+  4.  Faça o upload do código para o seu Arduino.
+  5.  Desconecte o Arduino do computador e ligue a bateria do robô.
+  6.  O robô aguardará o tempo inicial e começará a operar!
+
+  DICAS:
+  - Use a "Serial Monitor" do IDE do Arduino para ver as mensagens de depuração
+  e entender o que o robô está fazendo.
+  - Ajuste os parâmetros na seção CONFIGURAÇÕES para otimizar o comportamento do
+  seu robô.
+  - Experimente diferentes manobras e tempos para encontrar a melhor estratégia!
 */
 
 // ---+---===[ CONFIGURAÇÕES ]===---+---
+// Esta seção define os pinos do Arduino conectados aos componentes
+// e os parâmetros que controlam o comportamento do robô. Você pode
+// ajustar esses valores para otimizar o desempenho do seu robô!
 
-// Pinos do Sensor Ultrassônico
-const int PINO_TRIG = 9;
-const int PINO_ECHO = 10;
+// Pinos do Sensor Ultrassônico HC-SR04
+// O sensor ultrassônico mede distâncias usando som.
+const int PINO_TRIG = 9;  // Pino Trigger: Envia o pulso de som.
+const int PINO_ECHO = 10; // Pino Echo: Recebe o pulso de som refletido.
 
-const int IR_FRONT_SENSOR_PIN = 7; // Pino do sensor IR frontal para detecção da linha do ringue
-const int IR_REAR_SENSOR_PIN = 8;  // Pino do sensor IR traseiro para detecção da linha do ringue
+// Pinos dos Sensores Infravermelhos (IR) de Linha
+// Estes sensores detectam a linha branca na borda do ringue.
+const int IR_FRONT_SENSOR_PIN =
+    7; // Sensor IR frontal: Ajuda a evitar que o robô caia para frente.
+const int IR_REAR_SENSOR_PIN = 8; // Sensor IR traseiro: Ajuda a evitar que o
+                                  // robô seja empurrado para fora por trás.
 
-const int MOTOR_DIREITO_IN1 = 2;
-const int MOTOR_DIREITO_IN2 = 3;
-const int MOTOR_DIREITO_ENA = 6; // Pino PWM para controle de velocidade do motor direito
+// Pinos da Ponte H L298N para o Motor Direito
+// A Ponte H controla a direção e a velocidade dos motores.
+const int MOTOR_DIREITO_IN1 =
+    2; // Pino de controle de direção 1 do motor direito.
+const int MOTOR_DIREITO_IN2 =
+    3; // Pino de controle de direção 2 do motor direito.
+const int MOTOR_DIREITO_ENA =
+    6; // Pino de Habilitação (Enable) do motor direito. Conecte a um pino PWM
+       // do Arduino para controlar a velocidade.
 
-// Pinos da Ponte H para o Motor Esquerdo
-const int MOTOR_ESQUERDO_IN3 = 4;
-const int MOTOR_ESQUERDO_IN4 = 5;
-const int MOTOR_ESQUERDO_ENB = 11; // Pino PWM para controle de velocidade do motor esquerdo
+// Pinos da Ponte H L298N para o Motor Esquerdo
+const int MOTOR_ESQUERDO_IN3 =
+    4; // Pino de controle de direção 1 do motor esquerdo.
+const int MOTOR_ESQUERDO_IN4 =
+    5; // Pino de controle de direção 2 do motor esquerdo.
+const int MOTOR_ESQUERDO_ENB =
+    11; // Pino de Habilitação (Enable) do motor esquerdo. Conecte a um pino PWM
+        // do Arduino para controlar a velocidade.
 
-// Parâmetros de Comportamento
-const int ESPERA_INICIAL_SEGUNDOS = 2;
-const int AVANCO_INICIAL_MS = 500; // Avança por meio segundo
-const int DISTANCIA_MAXIMA_CM = 50; // Distância máxima para detectar um oponente
-const int MIN_DISTANCE_CM = 5; // Distância mínima confiável para o sensor (objetos mais próximos que isso serão tratados como MIN_DISTANCE_CM)
-const bool MOVIMENTO_DE_DEFESA_ATIVADO = true;
-const int LIMITE_SEM_ALTERACAO_CM = 5; // Se a distância mudar menos que isso, aciona a defesa
-const int TEMPO_RE_DEFESA_MS = 400;
-const int TEMPO_GIRO_DEFESA_MS = 300;
-const int TEMPO_PROCURA_GIRO_MS = 250; // Tempo que ele gira no próprio eixo procurando
-const int TEMPO_PROCURA_AVANCO_MS = 300; // Tempo que ele avança se não achar nada
+// Parâmetros de Comportamento do Robô
+// Estes valores definem como o robô se move e reage.
+const int ESPERA_INICIAL_SEGUNDOS =
+    2; // Tempo em segundos que o robô espera antes de começar a se mover (para
+       // o juiz iniciar a partida).
+const int AVANCO_INICIAL_MS =
+    500; // Tempo em milissegundos que o robô avança no início da partida.
+const int DISTANCIA_MAXIMA_CM =
+    50; // Distância máxima em cm para considerar um oponente detectado pelo
+        // sensor ultrassônico.
+const int MIN_DISTANCE_CM =
+    5; // Distância mínima em cm. Leituras abaixo disso serão tratadas como esta
+       // distância (zona morta do sensor).
+const bool MOVIMENTO_DE_DEFESA_ATIVADO =
+    true; // Define se o robô deve usar a manobra de defesa quando estiver
+          // travado.
+const int LIMITE_SEM_ALTERACAO_CM =
+    5; // Se a distância para o oponente mudar menos que isso, o robô considera
+       // que está travado e ativa a defesa.
+const int TEMPO_RE_DEFESA_MS =
+    400; // Tempo em milissegundos que o robô dá ré durante a manobra de defesa.
+const int TEMPO_GIRO_DEFESA_MS =
+    300; // Tempo em milissegundos que o robô gira durante a manobra de defesa.
+const int TEMPO_PROCURA_GIRO_MS =
+    250; // Tempo em milissegundos que o robô gira no próprio eixo ao procurar
+         // um oponente (não mais usado diretamente, mas mantido para
+         // referência).
+const int TEMPO_PROCURA_AVANCO_MS =
+    300; // Tempo em milissegundos que o robô avança um pouco se não encontrar
+         // oponente após girar.
 
 // ---+---===[ FIM DAS CONFIGURAÇÕES ]===---+---
 
 // ---+---===[ PROTÓTIPOS DE FUNÇÃO ]===---+---
-void controlMotor(int in1Pin, int in2Pin, int enablePin, int direction, int speed);
+// Protótipos informam ao compilador sobre a existência das funções
+// antes que elas sejam realmente definidas mais abaixo no código.
+// Isso é necessário para que o Arduino saiba que essas funções existem
+// quando são chamadas em 'setup()' ou 'loop()'.
+void controlMotor(int in1Pin, int in2Pin, int enablePin, int direction,
+                  int speed);
 void avancar(int speed = 200);
 void re(int speed = 200);
 void girarDireita(int speed = 200);
@@ -48,28 +164,39 @@ void procurarOponente();
 bool checkRingBoundary();
 // ---+---===[ FIM DOS PROTÓTIPOS ]===---+---
 
-long distanciaAnterior = 0;
-bool isAttacking = false; // Variável para rastrear o estado de ataque
+long distanciaAnterior = 0; // Armazena a última distância lida do oponente para
+                            // verificar se o robô está travado.
+bool isAttacking =
+    false; // Variável booleana que indica se o robô está atualmente em modo de
+           // ataque (detectou um oponente).
 
 void setup() {
-  // Inicializa a comunicação serial para depuração
+  // Inicia a comunicação serial para enviar mensagens de depuração para o
+  // computador. Abra o "Serial Monitor" no IDE do Arduino para ver essas
+  // mensagens.
   Serial.begin(9600);
 
-  // Configura os pinos do motor como saída
+  // --- Configuração dos Pinos de Saída (OUTPUT) para os Motores ---
+  // Estes pinos enviam sinais para a Ponte H para controlar os motores.
   pinMode(MOTOR_DIREITO_IN1, OUTPUT);
   pinMode(MOTOR_DIREITO_IN2, OUTPUT);
-  pinMode(MOTOR_DIREITO_ENA, OUTPUT); // Adicionado
+  pinMode(MOTOR_DIREITO_ENA,
+          OUTPUT); // Pino PWM para controle de velocidade do motor direito.
   pinMode(MOTOR_ESQUERDO_IN3, OUTPUT);
   pinMode(MOTOR_ESQUERDO_IN4, OUTPUT);
-  pinMode(MOTOR_ESQUERDO_ENB, OUTPUT); // Adicionado
+  pinMode(MOTOR_ESQUERDO_ENB,
+          OUTPUT); // Pino PWM para controle de velocidade do motor esquerdo.
 
-  // Configura os pinos do sensor ultrassônico
-  pinMode(PINO_TRIG, OUTPUT);
-  pinMode(PINO_ECHO, INPUT);
-  pinMode(IR_FRONT_SENSOR_PIN, INPUT); // Configura o pino do sensor IR frontal como entrada
-  pinMode(IR_REAR_SENSOR_PIN, INPUT);  // Configura o pino do sensor IR traseiro como entrada
+  // --- Configuração dos Pinos de Entrada (INPUT) para os Sensores ---
+  // Estes pinos recebem sinais dos sensores.
+  pinMode(PINO_TRIG,
+          OUTPUT); // O pino Trig do ultrassônico é uma SAÍDA (envia som).
+  pinMode(PINO_ECHO,
+          INPUT); // O pino Echo do ultrassônico é uma ENTRADA (recebe som).
+  pinMode(IR_FRONT_SENSOR_PIN, INPUT); // Sensor IR frontal: ENTRADA.
+  pinMode(IR_REAR_SENSOR_PIN, INPUT);  // Sensor IR traseiro: ENTRADA.
 
-  // Para os motores no início para garantir
+  // Garante que os motores estejam parados no início.
   pararMotores();
 
   Serial.println("Robô de Sumô Iniciando...");
@@ -77,134 +204,202 @@ void setup() {
   Serial.print(ESPERA_INICIAL_SEGUNDOS);
   Serial.println(" segundos...");
 
-  // Espera inicial configurável
+  // Espera inicial configurável antes de qualquer movimento.
+  // Isso dá tempo para o juiz iniciar a partida ou para você se afastar.
   delay(ESPERA_INICIAL_SEGUNDOS * 1000);
 
   Serial.println("Avanço inicial!");
+  // O robô avança um pouco no início para sair da posição inicial.
   avancar();
   delay(AVANCO_INICIAL_MS);
   pararMotores();
+  // Registra a distância inicial para o oponente (pode ser o ar, se não houver
+  // ninguém na frente).
   distanciaAnterior = lerDistanciaCm();
 }
 
 void loop() {
-  if (checkRingBoundary()) { // Verifica o limite do ringue primeiro
-    return; // Se a borda foi detectada e tratada, reinicia o loop imediatamente
+  // --- PRIORIDADE MÁXIMA: Verificação da Borda do Ringue ---
+  // Esta é a primeira coisa que o robô verifica em cada ciclo.
+  // Se uma borda for detectada, o robô executa uma manobra de recuperação
+  // e o 'loop()' é reiniciado imediatamente para garantir que a borda
+  // seja tratada com a maior prioridade.
+  if (checkRingBoundary()) {
+    return; // Se a borda foi detectada e tratada, reinicia o loop
+            // imediatamente.
   }
 
+  // --- Leitura do Sensor Ultrassônico ---
+  // Mede a distância até o objeto mais próximo à frente do robô.
   long distanciaAtual = lerDistanciaCm();
   Serial.print("Distância: ");
   Serial.print(distanciaAtual);
   Serial.println(" cm");
 
+  // --- Lógica Principal: Oponente Detectado vs. Nenhum Oponente ---
   // Se detecta um oponente dentro do alcance (incluindo os muito próximos)
   if (distanciaAtual <= DISTANCIA_MAXIMA_CM) {
-    // Oponente detectado
-    if (!isAttacking) { // Acabou de detectar um oponente, iniciar ataque
-        Serial.println("Oponente detectado, iniciando ataque.");
-        isAttacking = true;
+    // --- Oponente Detectado: Modo de Ataque ---
+    // Se o robô não estava atacando, mas agora detectou um oponente, ele entra
+    // no modo de ataque.
+    if (!isAttacking) {
+      Serial.println("Oponente detectado, iniciando ataque.");
+      isAttacking = true;
     }
 
-    // Lógica de ataque e defesa
-    if (MOVIMENTO_DE_DEFESA_ATIVADO && abs(distanciaAtual - distanciaAnterior) < LIMITE_SEM_ALTERACAO_CM) {
-        Serial.println("Sem alteração significativa de distância. Ativando defesa!");
-        movimentoDeDefesa();
+    // --- Verificação de Defesa (Robô Travado?) ---
+    // Se o mecanismo de defesa estiver ativado E a distância para o oponente
+    // não mudou significativamente (indicando que o robô pode estar travado),
+    // ele executa a manobra de defesa.
+    if (MOVIMENTO_DE_DEFESA_ATIVADO &&
+        abs(distanciaAtual - distanciaAnterior) < LIMITE_SEM_ALTERACAO_CM) {
+      Serial.println(
+          "Sem alteração significativa de distância. Ativando defesa!");
+      movimentoDeDefesa();
     } else {
-        avancar(); // Continua avançando
+      // Se não está travado, continua avançando para empurrar o oponente.
+      avancar();
     }
+    // Atualiza a distância anterior para a próxima iteração, para verificar
+    // travamento.
     distanciaAnterior = distanciaAtual;
   } else {
-    // Nenhum oponente detectado
-    if (isAttacking) { // Estava atacando, mas agora perdeu o oponente
-        Serial.println("Oponente perdido! Dando ré e procurando.");
-        re(); // Imediatamente dá ré
-        delay(300); // Dá ré por um curto período
-        pararMotores();
-        isAttacking = false; // Não está mais atacando
-        procurarOponente(); // Inicia a busca
+    // --- Nenhum Oponente Detectado: Modo de Busca ou Recuperação ---
+    // Se o robô estava atacando, mas agora perdeu o oponente de vista,
+    // ele executa uma manobra de recuperação (dar ré) e inicia a busca.
+    if (isAttacking) {
+      Serial.println("Oponente perdido! Dando ré e procurando.");
+      re();       // Imediatamente dá ré.
+      delay(300); // Dá ré por um curto período.
+      pararMotores();
+      isAttacking = false; // Não está mais atacando.
+      procurarOponente();  // Inicia a busca por um novo oponente.
     } else {
-        // Não está atacando e nenhum oponente, apenas procura
-        procurarOponente();
+      // Se não está atacando e nenhum oponente está à vista, ele continua
+      // procurando.
+      procurarOponente();
     }
   }
-  delay(50); // Pequeno delay para não sobrecarregar o loop
+  // Pequeno atraso para não sobrecarregar o processador e permitir leituras
+  // estáveis.
+  delay(50);
 }
 
 // ---+---===[ FUNÇÕES DE MOVIMENTO ]===---+---
+// Estas funções controlam o movimento do robô, definindo a direção e velocidade
+// dos motores.
 
-// Define motor directions for clarity
-#define MOTOR_FORWARD  1
-#define MOTOR_BACKWARD 0
-#define MOTOR_STOP     2
+// Define as direções de movimento para maior clareza no código.
+#define MOTOR_FORWARD 1  // Mover para frente
+#define MOTOR_BACKWARD 0 // Mover para trás
+#define MOTOR_STOP 2     // Parar o motor
 
-// Função auxiliar para controlar um único motor com velocidade (PWM)
-// in1Pin e in2Pin são os pinos de controle de direção da ponte H para um motor
-// enablePin é o pino PWM para controle de velocidade
-// direction pode ser MOTOR_FORWARD, MOTOR_BACKWARD ou MOTOR_STOP
-// speed é um valor de 0 a 255 para o PWM
-void controlMotor(int in1Pin, int in2Pin, int enablePin, int direction, int speed) {
+// Função auxiliar para controlar um único motor com velocidade (PWM).
+// Ela recebe os pinos de controle da Ponte H para um motor, o pino de
+// habilitação (PWM), a direção desejada e a velocidade (0-255).
+void controlMotor(int in1Pin, int in2Pin, int enablePin, int direction,
+                  int speed) {
   if (direction == MOTOR_FORWARD) {
-    digitalWrite(in1Pin, HIGH);
+    digitalWrite(in1Pin, HIGH); // Define a direção para frente.
     digitalWrite(in2Pin, LOW);
   } else if (direction == MOTOR_BACKWARD) {
-    digitalWrite(in1Pin, LOW);
+    digitalWrite(in1Pin, LOW); // Define a direção para trás.
     digitalWrite(in2Pin, HIGH);
   } else { // MOTOR_STOP
-    digitalWrite(in1Pin, LOW);
+    digitalWrite(in1Pin,
+                 LOW); // Para o motor, desligando ambos os pinos de direção.
     digitalWrite(in2Pin, LOW);
   }
-  analogWrite(enablePin, speed); // Aplica PWM ao pino de habilitação
+  analogWrite(enablePin, speed); // Aplica o valor PWM (velocidade) ao pino de
+                                 // habilitação do motor.
 }
 
+// Faz o robô avançar.
+// A velocidade padrão é 200, mas pode ser ajustada ao chamar a função.
 void avancar(int speed) {
-  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA, MOTOR_FORWARD, speed);
-  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB, MOTOR_FORWARD, speed);
+  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA,
+               MOTOR_FORWARD, speed);
+  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB,
+               MOTOR_FORWARD, speed);
 }
 
+// Faz o robô dar ré.
+// A velocidade padrão é 200.
 void re(int speed) {
-  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA, MOTOR_BACKWARD, speed);
-  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB, MOTOR_BACKWARD, speed);
+  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA,
+               MOTOR_BACKWARD, speed);
+  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB,
+               MOTOR_BACKWARD, speed);
 }
 
+// Faz o robô girar para a direita (um motor para trás, outro para frente).
+// A velocidade padrão é 200.
 void girarDireita(int speed) {
-  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA, MOTOR_BACKWARD, speed); // Motor direito para trás
-  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB, MOTOR_FORWARD, speed); // Motor esquerdo para frente
+  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA,
+               MOTOR_BACKWARD, speed); // Motor direito para trás.
+  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB,
+               MOTOR_FORWARD, speed); // Motor esquerdo para frente.
 }
 
+// Faz o robô girar no próprio eixo para a direita.
+// A velocidade padrão é 200.
 void girarNoEixo(int speed) {
-    // Gira para a direita no próprio eixo
-    girarDireita(speed);
+  girarDireita(speed); // Reutiliza a função girarDireita para girar no eixo.
 }
 
-
+// Para ambos os motores do robô.
 void pararMotores() {
-  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA, MOTOR_STOP, 0);
-  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB, MOTOR_STOP, 0);
+  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA,
+               MOTOR_STOP, 0); // Para o motor direito (velocidade 0).
+  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB,
+               MOTOR_STOP, 0); // Para o motor esquerdo (velocidade 0).
 }
 
 // ---+---===[ FUNÇÕES DO SENSOR ]===---+---
+// Esta seção contém funções para ler os dados dos sensores.
 
+// Função para ler a distância em centímetros usando o sensor ultrassônico
+// HC-SR04. Retorna a distância em cm, ou um valor especial se a leitura for
+// inválida ou muito próxima.
 long lerDistanciaCm() {
+  // Garante que o pino Trig esteja LOW por um curto período para limpar
+  // leituras anteriores.
   digitalWrite(PINO_TRIG, LOW);
   delayMicroseconds(2);
+  // Envia um pulso HIGH de 10 microssegundos no pino Trig.
+  // Este pulso faz o sensor emitir um som ultrassônico.
   digitalWrite(PINO_TRIG, HIGH);
   delayMicroseconds(10);
   digitalWrite(PINO_TRIG, LOW);
 
-  long duracao = pulseIn(PINO_ECHO, HIGH, 30000); // Timeout de 30ms (aprox. 5m) para evitar travamento
+  // Mede a duração do pulso HIGH no pino Echo.
+  // O pino Echo fica HIGH pelo tempo que o som leva para ir e voltar.
+  // O 'pulseIn' tem um timeout para evitar que o programa trave se não houver
+  // eco.
+  long duracao =
+      pulseIn(PINO_ECHO, HIGH, 30000); // Timeout de 30ms (aprox. 5m).
+
+  // Calcula a distância em centímetros.
+  // A velocidade do som no ar é de aproximadamente 343 metros por segundo, ou
+  // 0.0343 cm/microssegundo. Como o som viaja e volta, dividimos a duração por
+  // 2 e depois pelo tempo que leva para percorrer 1 cm (29 microssegundos).
   long distancia = duracao / 29 / 2;
 
-  // Se duracao for 0, significa que não houve eco (objeto muito longe ou erro).
-  // Ou se a distância calculada for muito grande (erro de leitura do sensor).
-  if (duracao == 0 || distancia > 400) { // 400cm é um limite razoável para a maioria dos HC-SR04
-      return DISTANCIA_MAXIMA_CM + 1; // Retorna um valor que indica "fora de alcance"
+  // --- Tratamento de Leituras Inválidas ou Extremas ---
+  // Se a duração for 0, significa que não houve eco (objeto muito longe ou erro
+  // na leitura). Ou se a distância calculada for muito grande (erro de leitura
+  // do sensor, HC-SR04 geralmente vai até 400cm).
+  if (duracao == 0 || distancia > 400) {
+    return DISTANCIA_MAXIMA_CM + 1; // Retorna um valor que indica "fora de
+                                    // alcance" para a lógica principal.
   }
-  // Se a distância for muito pequena (dentro da zona morta do sensor), ainda é um objeto.
-  // Retornamos a distância mínima configurada para indicar que está muito próximo.
+  // Se a distância for muito pequena (dentro da zona morta do sensor, abaixo de
+  // MIN_DISTANCE_CM), ainda é um objeto. Retornamos a distância mínima
+  // configurada para indicar que está muito próximo.
   if (distancia < MIN_DISTANCE_CM) {
-      return MIN_DISTANCE_CM; // Trata como se estivesse na distância mínima
+    return MIN_DISTANCE_CM; // Trata como se estivesse na distância mínima.
   }
-  return distancia;
+  return distancia; // Retorna a distância calculada em centímetros.
 }
 
 // ---+---===[ FUNÇÕES DE COMPORTAMENTO ]===---+---
@@ -213,8 +408,10 @@ void movimentoDeDefesa() {
   Serial.println("Executando manobra de defesa...");
   // Dá ré virando para a direita
   // Motor direito parado, motor esquerdo para trás
-  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA, MOTOR_STOP, 0); // Motor direito parado
-  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB, MOTOR_BACKWARD, 200); // Motor esquerdo para trás com velocidade
+  controlMotor(MOTOR_DIREITO_IN1, MOTOR_DIREITO_IN2, MOTOR_DIREITO_ENA,
+               MOTOR_STOP, 0); // Motor direito parado
+  controlMotor(MOTOR_ESQUERDO_IN3, MOTOR_ESQUERDO_IN4, MOTOR_ESQUERDO_ENB,
+               MOTOR_BACKWARD, 200); // Motor esquerdo para trás com velocidade
   delay(TEMPO_GIRO_DEFESA_MS);
 
   // Continua dando ré por um tempo
@@ -227,35 +424,36 @@ void movimentoDeDefesa() {
 }
 
 void procurarOponente() {
-    Serial.println("Procurando oponente girando no eixo...");
-    pararMotores();
-    delay(100); // Pequena pausa antes de girar
+  Serial.println("Procurando oponente girando no eixo...");
+  pararMotores();
+  delay(100); // Pequena pausa antes de girar
 
-    unsigned long startTime = millis();
-    const unsigned long searchDuration = 2000; // Gira por 2 segundos procurando
+  unsigned long startTime = millis();
+  const unsigned long searchDuration = 2000; // Gira por 2 segundos procurando
 
-    girarNoEixo(); // Começa a girar
+  girarNoEixo(); // Começa a girar
 
-    while (millis() - startTime < searchDuration) {
-        long distancia = lerDistanciaCm();
-        if (distancia > 0 && distancia <= DISTANCIA_MAXIMA_CM) {
-            Serial.println("Oponente encontrado durante o giro! Avançando.");
-            avancar(); // Avança imediatamente
-            return; // Sai da função de procura
-        }
-        // Pequeno delay para não sobrecarregar o sensor e o loop
-        delay(20); // Verifica a cada 20ms
+  while (millis() - startTime < searchDuration) {
+    long distancia = lerDistanciaCm();
+    if (distancia > 0 && distancia <= DISTANCIA_MAXIMA_CM) {
+      Serial.println("Oponente encontrado durante o giro! Avançando.");
+      avancar(); // Avança imediatamente
+      return;    // Sai da função de procura
     }
+    // Pequeno delay para não sobrecarregar o sensor e o loop
+    delay(20); // Verifica a cada 20ms
+  }
 
-    // Se chegou aqui, não encontrou nada durante o giro completo
-    Serial.println("Nenhum oponente encontrado após giro. Virando e avançando um pouco.");
-    pararMotores();
-    delay(100);
-    girarDireita();
-    delay(200); // Gira um pouco para a direita
-    avancar();
-    delay(TEMPO_PROCURA_AVANCO_MS); // Avança um pouco
-    pararMotores();
+  // Se chegou aqui, não encontrou nada durante o giro completo
+  Serial.println(
+      "Nenhum oponente encontrado após giro. Virando e avançando um pouco.");
+  pararMotores();
+  delay(100);
+  girarDireita();
+  delay(200); // Gira um pouco para a direita
+  avancar();
+  delay(TEMPO_PROCURA_AVANCO_MS); // Avança um pouco
+  pararMotores();
 }
 
 bool checkRingBoundary() {
@@ -267,12 +465,12 @@ bool checkRingBoundary() {
     Serial.println("Limite frontal do ringue detectado! Manobra de evasão.");
     pararMotores();
     delay(100);
-    re(); // Dá ré
+    re();       // Dá ré
     delay(500); // Dá ré por meio segundo
     pararMotores();
     delay(100);
     girarDireita(200); // Gira para a direita para se afastar da borda
-    delay(800); // Gira por um tempo
+    delay(800);        // Gira por um tempo
     pararMotores();
     return true; // Borda detectada e tratada
   } else if (rearBoundaryDetected) {
@@ -280,7 +478,7 @@ bool checkRingBoundary() {
     pararMotores();
     delay(100);
     avancar(255); // Empurra para frente na velocidade máxima
-    delay(700); // Empurra por um tempo
+    delay(700);   // Empurra por um tempo
     pararMotores();
     delay(100);
     girarDireita(200);
