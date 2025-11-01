@@ -58,6 +58,9 @@
       (Verifique a documentação do seu sensor IR: alguns podem precisar de um
   resistor pull-up/down ou ter uma saída invertida - HIGH para linha, LOW para
   fora da linha, ou vice-versa. O código assume HIGH para linha.)
+      **IMPORTANTE:**
+      - **Ajuste do Potenciômetro:** Muitos sensores IR possuem um pequeno potenciômetro (parafuso de ajuste) para calibrar a sensibilidade. Gire-o com uma chave de fenda pequena até que o sensor detecte a linha branca de forma confiável (geralmente, um LED no sensor acende/apaga).
+      - **Tipo de Sensor:** Existem sensores IR apenas digitais (saída HIGH/LOW) e outros que também possuem saída analógica. Este código utiliza a saída digital (D0) do sensor.
 
   COMO USAR O CÓDIGO:
   1.  Conecte seu Arduino ao computador.
@@ -115,10 +118,11 @@ const int PINO_ECHO = 10; // Pino Echo: Recebe o pulso de som refletido.
 
 // Pinos dos Sensores Infravermelhos (IR) de Linha
 // Estes sensores detectam a linha branca na borda do ringue.
-const int IR_FRONT_SENSOR_PIN =
-    7; // Sensor IR frontal: Ajuda a evitar que o robô caia para frente.
-const int IR_REAR_SENSOR_PIN = 8; // Sensor IR traseiro: Ajuda a evitar que o
-                                  // robô seja empurrado para fora por trás.
+const int IR_FRONT_SENSOR_PIN = 7; // Sensor IR frontal: Ajuda a evitar que o robô caia para frente.
+const bool INVERTER_IR_FRONT_SENSOR = false; // Defina como 'true' se o sensor frontal retornar LOW na linha e HIGH fora dela.
+const int IR_REAR_SENSOR_PIN = 8;  // Sensor IR traseiro: Ajuda a evitar que o robô seja empurrado para fora por trás.
+const bool INVERTER_IR_REAR_SENSOR = false;  // Defina como 'true' se o sensor traseiro retornar LOW na linha e HIGH fora dela.
+
 
 // Pinos da Ponte H L298N para o Motor Direito
 // A Ponte H controla a direção e a velocidade dos motores.
@@ -487,34 +491,41 @@ void procurarOponente() {
 }
 
 bool checkRingBoundary() {
-  // Assume HIGH significa que a borda do ringue foi detectada
-  bool frontBoundaryDetected = (digitalRead(IR_FRONT_SENSOR_PIN) == HIGH);
-  bool rearBoundaryDetected = (digitalRead(IR_REAR_SENSOR_PIN) == HIGH);
+  // Leitura bruta dos sensores IR.
+  bool frontSensorRaw = digitalRead(IR_FRONT_SENSOR_PIN);
+  bool rearSensorRaw = digitalRead(IR_REAR_SENSOR_PIN);
+
+  // Aplica a lógica de inversão: se INVERTER_IR_X_SENSOR for true, inverte o sinal bruto.
+  // Assume que 'true' (HIGH) significa borda detectada após a inversão, se necessário.
+  bool frontBoundaryDetected = INVERTER_IR_FRONT_SENSOR ? !frontSensorRaw : frontSensorRaw;
+  bool rearBoundaryDetected = INVERTER_IR_REAR_SENSOR ? !rearSensorRaw : rearSensorRaw;
 
   if (frontBoundaryDetected) {
     Serial.println("Limite frontal do ringue detectado! Manobra de evasão.");
-    pararMotores();
+    pararMotores(); // Para imediatamente.
     delay(100);
-    re();       // Dá ré
-    delay(500); // Dá ré por meio segundo
-    pararMotores();
+    re(); // Dá ré para sair da borda.
+    delay(500); // Dá ré por meio segundo.
+    pararMotores(); // Para novamente.
     delay(100);
-    girarDireita(200); // Gira para a direita para se afastar da borda
-    delay(800);        // Gira por um tempo
-    pararMotores();
-    return true; // Borda detectada e tratada
-  } else if (rearBoundaryDetected) {
+    girarDireita(200); // Gira para a direita para se afastar da borda.
+    delay(800); // Gira por um tempo.
+    pararMotores(); // Para após o giro.
+    return true; // Indica que a borda foi detectada e tratada.
+  } 
+  // --- Lógica para Borda Traseira Detectada ---
+  else if (rearBoundaryDetected) {
     Serial.println("Limite traseiro do ringue detectado! Defesa contra saída.");
-    pararMotores();
+    pararMotores(); // Para imediatamente.
     delay(100);
-    avancar(255); // Empurra para frente na velocidade máxima
-    delay(700);   // Empurra por um tempo
-    pararMotores();
+    avancar(255); // Empurra para frente na velocidade máxima (255).
+    delay(700); // Empurra por um tempo.
+    pararMotores(); // Para.
     delay(100);
-    girarDireita(200);
+    girarDireita(200); // Gira para a direita para reorientar, caso ainda esteja perto da borda.
     delay(400);
-    pararMotores();
-    return true; // Borda detectada e tratada
+    pararMotores(); // Para após o giro.
+    return true; // Indica que a borda foi detectada e tratada.
   }
-  return false; // Nenhuma borda detectada
+  return false; // Nenhuma borda detectada.
 }

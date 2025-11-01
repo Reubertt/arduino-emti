@@ -62,6 +62,9 @@ Para que seu robô de sumô funcione, você precisa conectar os componentes ao A
     - **Sensor IR Traseiro:**
         - IR OUT (D0) -> Arduino Digital 8 (IR_REAR_SENSOR_PIN)
     (Verifique a documentação do seu sensor IR: alguns podem precisar de um resistor pull-up/down ou ter uma saída invertida - HIGH para linha, LOW para fora da linha, ou vice-versa. O código assume HIGH para linha.)
+    **IMPORTANTE:**
+    - **Ajuste do Potenciômetro:** Muitos sensores IR possuem um pequeno potenciômetro (parafuso de ajuste) para calibrar a sensibilidade. Gire-o com uma chave de fenda pequena até que o sensor detecte a linha branca de forma confiável (geralmente, um LED no sensor acende/apaga).
+    - **Tipo de Sensor:** Existem sensores IR apenas digitais (saída HIGH/LOW) e outros que também possuem saída analógica. Este código utiliza a saída digital (D0) do sensor.
 
 ## 🚀 Como Usar o Código
 1.  📂 Abra o arquivo `code.ino` no IDE do Arduino.
