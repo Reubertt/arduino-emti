@@ -1,11 +1,10 @@
 /*
-  PROJETO: Robô de Sumô Autônomo)
+  PROJETO: Robô de Sumô Autônomo
 
   OBJETIVO:
   Este código controla um robô de sumô autônomo projetado para competir em um
   ringue. O robô usa sensores para detectar oponentes e as bordas do ringue,
   tomando decisões para atacar, defender e evitar cair.
-
 
   COMPONENTES NECESSÁRIOS:
   - Placa Arduino (Uno, Nano, etc.)
@@ -77,7 +76,34 @@
   - Experimente diferentes manobras e tempos para encontrar a melhor estratégia!
 */
 
-// ---+---===[ CONFIGURAÇÕES ]===---+---
+/*
+  --- Como este código está organizado? ---
+
+  1.  **Configurações (Pinos e Parâmetros):** Onde definimos as conexões do Arduino e ajustamos o comportamento do robô.
+  2.  **Protótipos de Função:** Declarações das funções para que o compilador as conheça.
+  3.  **Variáveis Globais:** Variáveis que guardam informações importantes durante todo o funcionamento do robô.
+  4.  **Função `setup()`:** O que o robô faz uma única vez quando liga (prepara os pinos e sensores).
+  5.  **Loop Principal (`loop()`):** O que o robô faz repetidamente (a "mente" do robô, onde ele toma decisões).
+  6.  **Funções de Movimento:** Como fazer o robô andar, girar e parar.
+  7.  **Funções de Sensores:** Como ler a distância do ultrassônico.
+  8.  **Funções de Comportamento:** As estratégias do robô (defesa, busca, evasão de borda).
+
+  --- Como Ajustar os Parâmetros do Robô? ---
+
+  Vá para a seção "CONFIGURAÇÕES" (logo abaixo).
+  Você pode mudar os números depois do `const int` ou `const bool` para alterar
+  o comportamento do robô sem precisar mexer na lógica principal.
+  Por exemplo, para o robô esperar mais tempo antes de começar, mude o valor de `ESPERA_INICIAL_SEGUNDOS`.
+  Experimente mudar:
+  - `DISTANCIA_MAXIMA_CM`: Para o robô detectar oponentes mais perto ou mais longe.
+  - `MOVIMENTO_DE_DEFESA_ATIVADO`: Para ligar ou desligar a defesa quando travado.
+  - `TEMPO_RE_DEFESA_MS`, `TEMPO_GIRO_DEFESA_MS`: Para ajustar a manobra de defesa.
+  - `searchDuration` dentro de `procurarOponente()`: Para mudar quanto tempo ele gira procurando.
+
+  --- Fim da Documentação Principal ---
+*/
+
+// ---+---===[ 1. CONFIGURAÇÕES (Pinos e Parâmetros) ]===---+---
 // Esta seção define os pinos do Arduino conectados aos componentes
 // e os parâmetros que controlam o comportamento do robô. Você pode
 // ajustar esses valores para otimizar o desempenho do seu robô!
@@ -146,7 +172,7 @@ const int TEMPO_PROCURA_AVANCO_MS =
 
 // ---+---===[ FIM DAS CONFIGURAÇÕES ]===---+---
 
-// ---+---===[ PROTÓTIPOS DE FUNÇÃO ]===---+---
+// ---+---===[ 2. PROTÓTIPOS DE FUNÇÃO ]===---+---
 // Protótipos informam ao compilador sobre a existência das funções
 // antes que elas sejam realmente definidas mais abaixo no código.
 // Isso é necessário para que o Arduino saiba que essas funções existem
@@ -164,12 +190,14 @@ void procurarOponente();
 bool checkRingBoundary();
 // ---+---===[ FIM DOS PROTÓTIPOS ]===---+---
 
-long distanciaAnterior = 0; // Armazena a última distância lida do oponente para
-                            // verificar se o robô está travado.
-bool isAttacking =
-    false; // Variável booleana que indica se o robô está atualmente em modo de
-           // ataque (detectou um oponente).
+// ---+---===[ 3. VARIÁVEIS GLOBAIS ]===---+---
+// Estas variáveis guardam informações importantes que são usadas em diferentes partes do código.
+long distanciaAnterior = 0; // Armazena a última distância lida do oponente para verificar se o robô está travado.
+bool isAttacking = false; // Variável booleana que indica se o robô está atualmente em modo de ataque (detectou um oponente).
 
+// ---+---===[ 4. FUNÇÃO `setup()` ]===---+---
+// Esta função roda APENAS UMA VEZ quando o Arduino é ligado ou resetado.
+// É onde preparamos tudo para o robô começar a trabalhar.
 void setup() {
   // Inicia a comunicação serial para enviar mensagens de depuração para o
   // computador. Abra o "Serial Monitor" no IDE do Arduino para ver essas
@@ -217,7 +245,9 @@ void setup() {
   // ninguém na frente).
   distanciaAnterior = lerDistanciaCm();
 }
-
+// ---+---===[ 5. LOOP PRINCIPAL (`loop()`) ]===---+---
+// Esta função roda INFINITAMENTE, uma vez após a outra, depois que o 'setup()' termina.
+// É a "mente" do robô, onde ele toma decisões continuamente.
 void loop() {
   // --- PRIORIDADE MÁXIMA: Verificação da Borda do Ringue ---
   // Esta é a primeira coisa que o robô verifica em cada ciclo.
@@ -284,8 +314,7 @@ void loop() {
   // estáveis.
   delay(50);
 }
-
-// ---+---===[ FUNÇÕES DE MOVIMENTO ]===---+---
+// ---+---===[ 6. FUNÇÕES DE MOVIMENTO ]===---+---
 // Estas funções controlam o movimento do robô, definindo a direção e velocidade
 // dos motores.
 
@@ -355,7 +384,7 @@ void pararMotores() {
                MOTOR_STOP, 0); // Para o motor esquerdo (velocidade 0).
 }
 
-// ---+---===[ FUNÇÕES DO SENSOR ]===---+---
+// ---+---===[ 7. FUNÇÕES DE SENSORES ]===---+---
 // Esta seção contém funções para ler os dados dos sensores.
 
 // Função para ler a distância em centímetros usando o sensor ultrassônico
@@ -402,7 +431,8 @@ long lerDistanciaCm() {
   return distancia; // Retorna a distância calculada em centímetros.
 }
 
-// ---+---===[ FUNÇÕES DE COMPORTAMENTO ]===---+---
+// ---+---===[ 8. FUNÇÕES DE COMPORTAMENTO ]===---+---
+// Estas funções definem a inteligência do robô, como ele reage a oponentes e ao ambiente.
 
 void movimentoDeDefesa() {
   Serial.println("Executando manobra de defesa...");
